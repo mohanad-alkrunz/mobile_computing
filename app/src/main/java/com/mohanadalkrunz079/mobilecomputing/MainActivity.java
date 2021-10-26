@@ -16,7 +16,7 @@ public class MainActivity extends AppCompatActivity {
 
         tv= findViewById(R.id.tv);
 
-        tv.setText("Welcome Yasmien 2021");
+        tv.setText("Welcome Mohanad");
 
     }
 }
