@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Mobile Computing</string>
     <string name="next"><u>Next</u></string>
+    <string name="bmi_analyzer">Bmi Analyzer</string>
 </resources>

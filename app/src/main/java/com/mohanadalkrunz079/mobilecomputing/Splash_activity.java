@@ -19,7 +19,7 @@ public class Splash_activity extends AppCompatActivity {
         setContentView(binding.getRoot());
 
         binding.goNextPage.setOnClickListener(v->{
-            Intent intent = new Intent(this,MainActivity.class);
+            Intent intent = new Intent(this,LoginActivity.class);
             startActivity(intent);
         });
 
