@@ -6,26 +6,27 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.method.HideReturnsTransformationMethod;
 import android.text.method.PasswordTransformationMethod;
-import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
 
-import com.mohanadalkrunz079.mobilecomputing.databinding.ActivityLoginBinding;
+import com.mohanadalkrunz079.mobilecomputing.databinding.ActivitySignUpBinding;
 
-public class LoginActivity extends AppCompatActivity {
+public class Sign_upActivity extends AppCompatActivity {
 
-    ActivityLoginBinding binding;
+
+    ActivitySignUpBinding binding;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        binding = ActivityLoginBinding.inflate(getLayoutInflater());
+        binding = ActivitySignUpBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
 
 
-        binding.signup.setOnClickListener(v->{
-            startActivity(new Intent(LoginActivity.this,Sign_upActivity.class));
+
+        binding.login.setOnClickListener(v->{
+            startActivity(new Intent(Sign_upActivity.this,LoginActivity.class));
         });
 
         binding.showPassword.setOnClickListener(v->{
@@ -43,20 +44,23 @@ public class LoginActivity extends AppCompatActivity {
         });
 
 
+        binding.create.setOnClickListener(v->{
 
-        binding.login.setOnClickListener(v->{
-
-            validateInputs();
-
-
-
+            validateData();
         });
+
     }
 
-    private void validateInputs() {
+    private void validateData() {
+
 
         if(binding.username.getText().toString().isEmpty()){
             binding.username.setError(getResources().getString(R.string.required));
+            return ;
+        }
+
+        if(binding.email.getText().toString().isEmpty()){
+            binding.email.setError(getResources().getString(R.string.required));
             return ;
         }
 
@@ -65,6 +69,18 @@ public class LoginActivity extends AppCompatActivity {
             return ;
         }
 
-        Toast.makeText(LoginActivity.this, "Success Login", Toast.LENGTH_SHORT).show();
+        if(binding.rePassword.getText().toString().isEmpty()){
+            binding.rePassword.setError(getResources().getString(R.string.required));
+            return ;
+        }
+
+        if(! binding.password.getText().toString().equals(binding.rePassword.getText().toString())){
+            Toast.makeText(Sign_upActivity.this, "Password are not similar", Toast.LENGTH_SHORT).show();
+            binding.rePassword.setError(getResources().getString(R.string.required));
+            return;
+        }
+
+
+        Toast.makeText(Sign_upActivity.this, "Success Signup", Toast.LENGTH_SHORT).show();
     }
 }
