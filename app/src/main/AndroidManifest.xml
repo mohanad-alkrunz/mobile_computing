@@ -10,13 +10,16 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MobileComputing">
         <activity
-            android:name=".Sign_upActivity"
+            android:name=".ui.auth.UserInformationActivity"
             android:exported="true" />
         <activity
-            android:name=".LoginActivity"
+            android:name=".ui.auth.Sign_upActivity"
             android:exported="true" />
         <activity
-            android:name=".Splash_activity"
+            android:name=".ui.auth.LoginActivity"
+            android:exported="true" />
+        <activity
+            android:name=".ui.auth.Splash_activity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -25,7 +28,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.Main.MainActivity"
             android:exported="true" />
     </application>
 
