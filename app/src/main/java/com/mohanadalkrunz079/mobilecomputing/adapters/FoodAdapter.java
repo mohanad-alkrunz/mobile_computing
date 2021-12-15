@@ -1,2 +1,91 @@
-package com.mohanadalkrunz079.mobilecomputing.adapters;public class FoodAdapter {
+package com.mohanadalkrunz079.mobilecomputing.adapters;
+
+import android.content.Context;
+import android.graphics.BitmapFactory;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.mohanadalkrunz079.mobilecomputing.R;
+import com.mohanadalkrunz079.mobilecomputing.model.BMIRecord;
+import com.mohanadalkrunz079.mobilecomputing.model.Food;
+
+import java.util.List;
+
+public class FoodAdapter extends RecyclerView.Adapter<FoodAdapter.FoodVH> {
+
+
+    List<Food> recordList;
+
+    public  interface FoodListener{
+        void onEditClickListener(Context context,String food_id);
+        void onDeleteClickListener(String food_id);
+    }
+
+    FoodListener listener;
+    public FoodAdapter(List<Food> recordList,FoodListener listener) {
+        this.recordList =recordList;
+        this.listener = listener;
+
+    }
+
+    @NonNull
+    @Override
+    public FoodAdapter.FoodVH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.food_row, parent, false);
+        return new FoodAdapter.FoodVH(view);
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull FoodAdapter.FoodVH holder, int position) {
+        holder.onBind(recordList.get(position));
+    }
+
+    @Override
+    public int getItemCount() {
+        return recordList.size();
+    }
+
+
+    class FoodVH extends RecyclerView.ViewHolder {
+
+        TextView food_name,food_category,food_calory;
+        ImageView food_image,delete_image;
+        Button edit_image;
+
+
+        public FoodVH(@NonNull View itemView) {
+            super(itemView);
+
+            food_name = itemView.findViewById(R.id.food_name);
+            food_category = itemView.findViewById(R.id.food_category);
+            food_calory = itemView.findViewById(R.id.food_calory);
+            food_image = itemView.findViewById(R.id.food_image);
+            delete_image = itemView.findViewById(R.id.delete_image);
+            edit_image = itemView.findViewById(R.id.edit_image);
+
+        }
+
+        public void onBind(Food record) {
+
+            food_name.setText(record.getName());
+            food_category.setText(record.getCategory());
+            food_calory.setText(record.getCalory());
+            food_image.setImageBitmap(BitmapFactory.decodeByteArray(record.getImage(),0,record.getImage().length));
+            delete_image.setOnClickListener(v->{
+                listener.onDeleteClickListener(record.getId());
+            });
+
+            edit_image.setOnClickListener(v->{
+                listener.onEditClickListener(itemView.getContext(),record.getId());
+            });
+
+        }
+    }
 }
