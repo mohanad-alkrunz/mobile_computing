@@ -9,7 +9,7 @@ import com.mohanadalkrunz079.mobilecomputing.databinding.ActivitySplashBinding;
 
 public class Splash_activity extends AppCompatActivity {
 
-    private static final int SPLASH_TIME_OUT = 2000;
+//    private static final int SPLASH_TIME_OUT = 2000;
 
 
     ActivitySplashBinding binding;
@@ -30,25 +30,25 @@ public class Splash_activity extends AppCompatActivity {
     }
 
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        Thread thread = new Thread() {
-            @Override
-            public void run() {
-                try {
-                    super.run();
-                    sleep(SPLASH_TIME_OUT);
-                } catch (InterruptedException e) {
-                    System.out.println(e.toString());
-                } finally {
-                    Intent intent = new Intent(Splash_activity.this,LoginActivity.class);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    startActivity(intent);
-
-                }
-            }
-        };
-        thread.start();
-    }
+//    @Override
+//    protected void onResume() {
+//        super.onResume();
+//        Thread thread = new Thread() {
+//            @Override
+//            public void run() {
+//                try {
+//                    super.run();
+//                    sleep(SPLASH_TIME_OUT);
+//                } catch (InterruptedException e) {
+//                    System.out.println(e.toString());
+//                } finally {
+//                    Intent intent = new Intent(Splash_activity.this,LoginActivity.class);
+//                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+//                    startActivity(intent);
+//
+//                }
+//            }
+//        };
+//        thread.start();
+//    }
 }

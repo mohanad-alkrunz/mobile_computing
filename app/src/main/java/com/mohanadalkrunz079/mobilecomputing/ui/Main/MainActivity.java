@@ -61,6 +61,7 @@ public class MainActivity extends AppCompatActivity {
                 recordList.add(tempList.get(i));
             }
         }
+        adapter.notifyDataSetChanged();
         if (recordList.size() == 0){
             binding.recordsRv.setVisibility(View.GONE);
             binding.noRecords.setVisibility(View.VISIBLE);
@@ -89,7 +90,6 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-
         binding.logout.setOnClickListener(v->{
             loginPrefsEditor.putString("username", "no user");
             loginPrefsEditor.commit();
@@ -108,6 +108,8 @@ public class MainActivity extends AppCompatActivity {
                 user.setUsername(users_list.get(i).getUsername());
                 user.setEmail(users_list.get(i).getEmail());
                 user.setID(users_list.get(i).getID());
+                user.setDob(users_list.get(i).getDob());
+                user.setGender(users_list.get(i).getGender());
                 isLogin = true;
                 break;
             } else {
@@ -122,16 +124,37 @@ public class MainActivity extends AppCompatActivity {
             startActivity(intent);
         }
 
+        binding.addFood.setOnClickListener(v->{
+            Intent intent = new Intent(MainActivity.this, AddFoodActivity.class);
+            intent.putExtra("uid",user.getID());
+            startActivity(intent);
+        });
+
+        binding.viewFood.setOnClickListener(v->{
+            Intent intent = new Intent(MainActivity.this, FoodListActivity.class);
+            intent.putExtra("uid",user.getID());
+            startActivity(intent);
+        });
 
         binding.addRecord.setOnClickListener(v->{
             Intent intent = new Intent(MainActivity.this,AddRecordActivity.class);
             intent.putExtra("uid",user.getID());
             intent.putExtra("dob",user.getDob());
+            intent.putExtra("gender",user.getGender());
+            if(recordList.size() == 0){
+                intent.putExtra("last_record",0.0);
+            }else{
+                intent.putExtra("last_record",Double.valueOf(recordList.get(recordList.size()-1).getBMI()));
+            }
             startActivity(intent);
         });
     }
 
-
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        displayUserRecords();
+    }
 }
 
 

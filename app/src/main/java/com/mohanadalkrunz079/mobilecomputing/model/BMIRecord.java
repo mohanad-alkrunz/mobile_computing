@@ -8,6 +8,16 @@ public class BMIRecord {
     private String date;
     private String status;
     private String UID;
+    private String BMI;
+
+
+    public String getBMI() {
+        return BMI;
+    }
+
+    public void setBMI(String BMI) {
+        this.BMI = BMI;
+    }
 
     public String getUID() {
         return UID;

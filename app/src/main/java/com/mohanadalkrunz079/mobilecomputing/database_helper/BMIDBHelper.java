@@ -15,7 +15,7 @@ public class BMIDBHelper extends SQLiteOpenHelper {
     //database name
     public static final String DATABASE_NAME = "mohanad_computing";
     //database version
-    public static final int DATABASE_VERSION = 2;
+    public static final int DATABASE_VERSION = 3;
     public static final String TABLE_NAME = "tbl_records";
 
     public BMIDBHelper(Context context) {
@@ -26,7 +26,7 @@ public class BMIDBHelper extends SQLiteOpenHelper {
     public void onCreate(SQLiteDatabase db) {
         String query;
         //creating table
-        query = "CREATE TABLE " + TABLE_NAME + "(ID INTEGER PRIMARY KEY, Weight Text,Length Text,Date Text,Status Text,UID String)";
+        query = "CREATE TABLE " + TABLE_NAME + "(ID INTEGER PRIMARY KEY, Weight Text,Length Text,Date Text,Status Text,UID String,BMI String)";
         db.execSQL(query);
     }
 
@@ -38,7 +38,7 @@ public class BMIDBHelper extends SQLiteOpenHelper {
     }
 
     //add the new note
-    public void addRecord(String weight, String length , String date, String status,String uid) {
+    public void addRecord(String weight, String length , String date, String status,String uid,String BMI) {
         SQLiteDatabase sqLiteDatabase = this .getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put("weight", weight);
@@ -46,6 +46,7 @@ public class BMIDBHelper extends SQLiteOpenHelper {
         values.put("date", date);
         values.put("status", status);
         values.put("uid", uid);
+        values.put("bmi",BMI);
 
         //inserting new row
         sqLiteDatabase.insert(TABLE_NAME, null , values);
@@ -73,6 +74,7 @@ public class BMIDBHelper extends SQLiteOpenHelper {
                 record.setDate(cursor.getString(3));
                 record.setStatus(cursor.getString(4));
                 record.setUID(cursor.getString(5));
+                record.setBMI(cursor.getString(6));
                 arrayList.add(record);
             }while (cursor.moveToNext());
         }
