@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "795826472398",
+    "project_id": "mobilecomouting",
+    "storage_bucket": "mobilecomouting.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:795826472398:android:5479151025e3e32178179f",
+        "android_client_info": {
+          "package_name": "com.mohanadalkrunz079.mobilecomputing"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "795826472398-8luetgigk82bq1p0s1cjuddu530btsu2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAbMTnE0P-Cw-w65koQKPViRLIOVo1h3Oc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "795826472398-8luetgigk82bq1p0s1cjuddu530btsu2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

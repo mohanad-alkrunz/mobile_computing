@@ -1,5 +1,6 @@
 package com.mohanadalkrunz079.mobilecomputing.ui.auth;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
@@ -10,6 +11,14 @@ import android.text.method.PasswordTransformationMethod;
 import android.view.View;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.UserProfileChangeRequest;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.mohanadalkrunz079.mobilecomputing.R;
 import com.mohanadalkrunz079.mobilecomputing.database_helper.UserDBHelper;
 import com.mohanadalkrunz079.mobilecomputing.databinding.ActivitySignUpBinding;
@@ -22,8 +31,9 @@ public class Sign_upActivity extends AppCompatActivity {
 
     ActivitySignUpBinding binding;
 
-    UserDBHelper userDBHelper;
-
+    private FirebaseAuth mAuth;
+    FirebaseDatabase database = FirebaseDatabase.getInstance();
+    DatabaseReference myRef ;
 
     private SharedPreferences loginPreferences = null;
     private SharedPreferences.Editor loginPrefsEditor;
@@ -34,8 +44,7 @@ public class Sign_upActivity extends AppCompatActivity {
         binding = ActivitySignUpBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        userDBHelper = new UserDBHelper(this);
-
+        mAuth = FirebaseAuth.getInstance();
         loginPreferences = getSharedPreferences("loginPrefs", MODE_PRIVATE);
         loginPrefsEditor = loginPreferences.edit();
 
@@ -94,37 +103,46 @@ public class Sign_upActivity extends AppCompatActivity {
             return;
         }
 
+        mAuth.createUserWithEmailAndPassword(binding.email.getText().toString(), binding.password.getText().toString())
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        if (task.isSuccessful()) {
 
-        ArrayList<User> users_list = userDBHelper.getUsers() ;
+                            FirebaseUser user = mAuth.getCurrentUser();
+                            UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
+                                    .setDisplayName(binding.username.getText().toString()).build();
+                            user.updateProfile(profileUpdates)
+                                    .addOnCompleteListener(new OnCompleteListener<Void>() {
+                                        @Override
+                                        public void onComplete(@NonNull Task<Void> task) {
+                                            if (task.isSuccessful()) {
+                                                loginPrefsEditor.putString("username", user.getDisplayName());
+                                                loginPrefsEditor.commit();
+                                                User user1 = new User();
+                                                user1.setID(user.getUid());
+                                                user1.setUsername(binding.username.getText().toString());
+                                                user1.setEmail(binding.email.getText().toString());
+                                              myRef = database.getReference("Users").child(user.getUid());
+                                                myRef.setValue(user1);
 
-        if(users_list != null || users_list.size() != 0){
-            for(int i=0 ; i< users_list.size();i++){
-
-                if(binding.username.getText().toString().equals(users_list.get(i).getUsername())){
-                    Toast.makeText(Sign_upActivity.this, "This username is already exist", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                if(binding.email.getText().toString().equals(users_list.get(i).getEmail())){
-                    Toast.makeText(Sign_upActivity.this, "This email is already exist", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-            }
-        }
+                                                Intent intent = new Intent(Sign_upActivity.this, UserInformationActivity.class);
+                                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                                                startActivity(intent);
+                                            }
+                                        }
+                                    });
 
 
-        userDBHelper.addUser(
-                binding.username.getText().toString(),
-                binding.password.getText().toString(),
-                binding.email.getText().toString()
-                            );
 
-        loginPrefsEditor.putString("username", binding.username.getText().toString());
-        loginPrefsEditor.commit();
+                        } else {
 
-        Intent intent = new Intent(Sign_upActivity.this, UserInformationActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
+                            Toast.makeText(Sign_upActivity.this, "Authentication failed." + task.getException().getLocalizedMessage(),
+                                    Toast.LENGTH_SHORT).show();
 
-        Toast.makeText(Sign_upActivity.this, "Success Signup", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+
     }
 }

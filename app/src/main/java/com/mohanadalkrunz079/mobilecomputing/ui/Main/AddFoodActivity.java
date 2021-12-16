@@ -1,10 +1,13 @@
 package com.mohanadalkrunz079.mobilecomputing.ui.Main;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.loader.content.CursorLoader;
 
 import android.Manifest;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -23,10 +26,30 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.ChildEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.OnProgressListener;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 import com.mohanadalkrunz079.mobilecomputing.R;
 import com.mohanadalkrunz079.mobilecomputing.database_helper.FoodDBHelper;
 import com.mohanadalkrunz079.mobilecomputing.databinding.ActivityAddFoodBinding;
+import com.mohanadalkrunz079.mobilecomputing.firebase.MyFirebaseProvider;
+import com.mohanadalkrunz079.mobilecomputing.model.BMIRecord;
 import com.mohanadalkrunz079.mobilecomputing.model.Food;
+import com.mohanadalkrunz079.mobilecomputing.model.User;
+import com.squareup.picasso.Picasso;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -34,41 +57,64 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 import pub.devrel.easypermissions.EasyPermissions;
 
 public class AddFoodActivity extends AppCompatActivity {
 
-    ActivityAddFoodBinding binding;
-    String[] food_categories = { "Fish", "Vegetables",
-            "Juice", "Fruits",
-            "Fries", "Frozen" };
 
-    String uid = "";
-    String food_id="";
-    private String Document_img1="";
+    FirebaseAuth auth = FirebaseAuth.getInstance();
+    FirebaseUser user = auth.getCurrentUser();
+    FirebaseDatabase database = FirebaseDatabase.getInstance();
+    DatabaseReference user_reference = database.getReference("Users").child(user.getUid());
+    FirebaseStorage storage;
+    StorageReference storageReference;
+    Uri image_uri;
+
+    User mUser;
+    Food food;
+    ActivityAddFoodBinding binding;
+    String[] food_categories = {"Fish", "Vegetables",
+            "Juice", "Fruits",
+            "Fries", "Frozen"};
+    String food_id = "";
     private static final int REQUEST_GALLERY_CODE_PRIMARY = 201;
-    private File file;
     String cat;
-    private FoodDBHelper dbHelper;
+
+    final List<Food> my_records = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivityAddFoodBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+        storage = FirebaseStorage.getInstance();
+        storageReference = storage.getReference();
+        user_reference.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                mUser = snapshot.getValue(User.class);
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+
+            }
+        });
+
+
         Intent intent = getIntent();
-        uid = intent.getStringExtra("uid");
         food_id = intent.getStringExtra("food_id");
-        if(food_id == null){
-            food_id ="";
+        if (food_id == null) {
+            food_id = "";
+        }else{
+            setData(food_id);
         }
 
-
-
-        dbHelper = new FoodDBHelper(this);
         ArrayAdapter ad
                 = new ArrayAdapter(
                 this,
@@ -84,7 +130,6 @@ public class AddFoodActivity extends AppCompatActivity {
         binding.category.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                Toast.makeText(AddFoodActivity.this, food_categories[position] + uid, Toast.LENGTH_SHORT).show();
                 cat = food_categories[position];
             }
 
@@ -95,59 +140,24 @@ public class AddFoodActivity extends AppCompatActivity {
         });
 
 
-        if (!food_id.isEmpty()){
-            binding.title.setText("Edit Food");
-            List<Food> food_list = dbHelper.getRecords();
-            for (int i=0 ; i<food_list.size();i++){
-                if(food_list.get(i).getId().equals(food_id)){
-                    binding.calory.setText(food_list.get(i).getCalory());
-                    for(int j=0;j<food_categories.length;j++){
-                        if (food_list.get(i).getCategory().equals(food_categories[j])){
-                            binding.category.setSelection(j);
-                        }
-                    }
-                    binding.foodName.setText(food_list.get(i).getName());
-                    byte[] imgByte = food_list.get(i).getImage();
-                    binding.attachImage.setImageBitmap(BitmapFactory.decodeByteArray(imgByte,0,imgByte.length));
-                }
-            }
-        }
-
-        binding.uploadImage.setOnClickListener(v->{
+        binding.uploadImage.setOnClickListener(v -> {
             selectImagePrimary();
         });
 
-        binding.saveRecord.setOnClickListener(v->{
+        binding.saveRecord.setOnClickListener(v -> {
 
-            if(validate_fields()){
-
-                String name = binding.foodName.getText().toString();
-                String category =  cat;
-                String calory = binding.calory.getText().toString();
-                String userid = uid;
-                BitmapDrawable bitmapDrawable = ((BitmapDrawable) binding.attachImage.getDrawable());
-                Bitmap bitmap = bitmapDrawable .getBitmap();
-                byte[] image = getBitmapAsByteArray(bitmap);
-                String key_name = new Date().getTime() + "";
-                if(food_id.isEmpty()){
-                    dbHelper.addRecord(name,category,image,calory,userid,key_name);
-                    Toast.makeText(AddFoodActivity.this, "Food Added Successful", Toast.LENGTH_SHORT).show();
-                }else{
-                    dbHelper.updateFoodInformation(food_id,name,cat,calory,image);
-                }
-
-
-
+            if (validate_fields()) {
+                uploadImage();
             }
         });
     }
 
-    private boolean validate_fields(){
-        if (binding.foodName.getText().toString().isEmpty()){
+    private boolean validate_fields() {
+        if (binding.foodName.getText().toString().isEmpty()) {
             binding.foodName.setError(getResources().getString(R.string.required));
             return false;
         }
-        if (binding.calory.getText().toString().isEmpty()){
+        if (binding.calory.getText().toString().isEmpty()) {
             binding.calory.setError(getResources().getString(R.string.required));
             return false;
         }
@@ -173,11 +183,13 @@ public class AddFoodActivity extends AppCompatActivity {
             if (resultCode == RESULT_OK) {
                 String path = getRealPathFromURI(this, data.getData());
                 Log.d("path", path);
-                file = (getFile(path));
-                binding.attachImage.setImageURI(data.getData());
+
+                image_uri = data.getData();
+                binding.attachImage.setImageURI(image_uri);
             }
         }
     }
+
     public static byte[] getBitmapAsByteArray(Bitmap bitmap) {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         bitmap.compress(Bitmap.CompressFormat.PNG, 0, outputStream);
@@ -185,7 +197,7 @@ public class AddFoodActivity extends AppCompatActivity {
     }
 
 
-    public static String getRealPathFromURI(Context context , Uri contentUri) {
+    public static String getRealPathFromURI(Context context, Uri contentUri) {
         String[] proj = {MediaStore.Images.Media.DATA};
         CursorLoader loader = new CursorLoader(context, contentUri, proj, null, null, null);
         Cursor cursor = loader.loadInBackground();
@@ -196,8 +208,143 @@ public class AddFoodActivity extends AppCompatActivity {
         return result;
     }
 
-    public   static File getFile(String path) {
+    public static File getFile(String path) {
         return new File(path);
     }
 
+    private void uploadImage() {
+        if (image_uri != null) {
+
+            // Code for showing progressDialog while uploading
+            ProgressDialog progressDialog
+                    = new ProgressDialog(this);
+            progressDialog.setTitle("Uploading...");
+            progressDialog.show();
+
+            // Defining the child of storageReference
+
+            StorageReference ref
+                    = storageReference
+                    .child(
+                            "images/"
+                                    + UUID.randomUUID().toString());
+
+            // adding listeners on upload
+            // or failure of image
+            ref.putFile(image_uri)
+                    .addOnSuccessListener(
+                            new OnSuccessListener<UploadTask.TaskSnapshot>() {
+
+                                @Override
+                                public void onSuccess(
+                                        UploadTask.TaskSnapshot taskSnapshot) {
+
+                                    progressDialog.dismiss();
+                                    Toast.makeText(AddFoodActivity.this,
+                                                    "Image Uploaded!!",
+                                                    Toast.LENGTH_SHORT).show();
+                                    Food new_food = new Food();
+                                    new_food.setName(binding.foodName.getText().toString());
+                                    new_food.setCalory(binding.calory.getText().toString());
+                                    new_food.setCategory(cat);
+
+                                    Task<Uri> downloadUri = taskSnapshot.getStorage().getDownloadUrl().addOnCompleteListener(new OnCompleteListener<Uri>() {
+                                        @Override
+                                        public void onComplete(@NonNull Task<Uri> task) {
+                                            new_food.setKey_name(task.getResult().toString());
+                                            new_food.setUid(user.getUid());
+
+                                            if(food_id.isEmpty()){
+                                                String mfood_id = new Date().getTime() +"";
+                                                new_food.setId(mfood_id);
+                                                DatabaseReference foods_refernce = database.getReference("Food").child(user.getUid()).child(mfood_id);
+
+                                                foods_refernce.setValue(new_food).addOnCompleteListener(new OnCompleteListener<Void>() {
+                                                    @Override
+                                                    public void onComplete(@NonNull Task<Void> task) {
+                                                        Toast.makeText(AddFoodActivity.this, "Food Added Successful", Toast.LENGTH_SHORT).show();
+                                                    }
+                                                });
+                                            }else{
+                                                DatabaseReference foods_refernce = database.getReference("Food").child(user.getUid()).child(food_id);
+                                                new_food.setId(food_id);
+                                                foods_refernce.setValue(new_food).addOnCompleteListener(new OnCompleteListener<Void>() {
+                                                    @Override
+                                                    public void onComplete(@NonNull Task<Void> task) {
+                                                        Toast.makeText(AddFoodActivity.this, "Food Updated Successful", Toast.LENGTH_SHORT).show();
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    });
+                                }
+                            })
+
+                    .addOnFailureListener(new OnFailureListener() {
+                        @Override
+                        public void onFailure(@NonNull Exception e) {
+
+                            // Error, Image not uploaded
+                            progressDialog.dismiss();
+                            Toast
+                                    .makeText(AddFoodActivity.this,
+                                            "Failed " + e.getMessage(),
+                                            Toast.LENGTH_SHORT)
+                                    .show();
+                        }
+                    })
+                    .addOnProgressListener(
+                            new OnProgressListener<UploadTask.TaskSnapshot>() {
+
+                                // Progress Listener for loading
+                                // percentage on the dialog box
+                                @Override
+                                public void onProgress(
+                                        UploadTask.TaskSnapshot taskSnapshot) {
+                                    double progress
+                                            = (100.0
+                                            * taskSnapshot.getBytesTransferred()
+                                            / taskSnapshot.getTotalByteCount());
+                                    progressDialog.setMessage(
+                                            "Uploaded "
+                                                    + (int) progress + "%");
+                                }
+                            });
+        }
+    }
+
+
+    public void setData(String food_id) {
+
+        MyFirebaseProvider.getChildDatabaseReference("Food").child(user.getUid()).child(food_id).
+                addValueEventListener(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        food = snapshot.getValue(Food.class);
+                        binding.calory.setText(food.getCalory());
+                        for (int j = 0; j < food_categories.length; j++) {
+                            if (food.getCategory().equals(food_categories[j])) {
+                                binding.category.setSelection(j);
+                            }
+                        }
+                        binding.foodName.setText(food.getName());
+                        Picasso.get().load(food.getKey_name()).into(binding.attachImage);
+                        Bitmap bitmap = ((BitmapDrawable)binding.attachImage.getDrawable()).getBitmap();
+                        image_uri =  getImageUri(AddFoodActivity.this,bitmap);
+                    }
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+
+                    }
+                });
+
+    }
+
+
+    public Uri getImageUri(Context inContext, Bitmap inImage) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        inImage.compress(Bitmap.CompressFormat.JPEG, 100, bytes);
+        String path = MediaStore.Images.Media.insertImage(AddFoodActivity.this.getContentResolver(), inImage, UUID.randomUUID().toString() + ".png", "drawing");
+        return Uri.parse(path);
+    }
 }

@@ -7,26 +7,26 @@ public class Food {
     private String name;
     private String category;
     private String calory;
-    private byte [] image;
+
     private String uid;
-    private String key_name;
+    private String image;
 
 
     public String getKey_name() {
-        return key_name;
-    }
-
-    public void setKey_name(String key_name) {
-        this.key_name = key_name;
-    }
-
-    public byte [] getImage() {
         return image;
     }
 
-    public void setImage(byte [] image) {
-        this.image = image;
+    public void setKey_name(String key_name) {
+        this.image = key_name;
     }
+
+//    public byte [] getImage() {
+//        return image;
+//    }
+//
+//    public void setImage(byte [] image) {
+//        this.image = image;
+//    }
 
     public String getId() {
         return id;

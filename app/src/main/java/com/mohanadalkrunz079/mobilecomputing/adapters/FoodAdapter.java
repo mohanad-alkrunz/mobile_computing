@@ -2,6 +2,7 @@ package com.mohanadalkrunz079.mobilecomputing.adapters;
 
 import android.content.Context;
 import android.graphics.BitmapFactory;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -15,6 +16,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.mohanadalkrunz079.mobilecomputing.R;
 import com.mohanadalkrunz079.mobilecomputing.model.BMIRecord;
 import com.mohanadalkrunz079.mobilecomputing.model.Food;
+import com.squareup.picasso.Callback;
+import com.squareup.picasso.NetworkPolicy;
+import com.squareup.picasso.Picasso;
 
 import java.util.List;
 
@@ -77,7 +81,8 @@ public class FoodAdapter extends RecyclerView.Adapter<FoodAdapter.FoodVH> {
             food_name.setText(record.getName());
             food_category.setText(record.getCategory());
             food_calory.setText(record.getCalory());
-            food_image.setImageBitmap(BitmapFactory.decodeByteArray(record.getImage(),0,record.getImage().length));
+            Picasso.get().load(record.getKey_name()).into(food_image);
+//            food_image.setImageBitmap(BitmapFactory.decodeByteArray(record.getImage(),0,record.getImage().length));
             delete_image.setOnClickListener(v->{
                 listener.onDeleteClickListener(record.getId());
             });
@@ -88,4 +93,6 @@ public class FoodAdapter extends RecyclerView.Adapter<FoodAdapter.FoodVH> {
 
         }
     }
+
+
 }

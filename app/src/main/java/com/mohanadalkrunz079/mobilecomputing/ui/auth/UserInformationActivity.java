@@ -9,11 +9,24 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.ChildEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import com.mohanadalkrunz079.mobilecomputing.database_helper.BMIDBHelper;
 import com.mohanadalkrunz079.mobilecomputing.database_helper.UserDBHelper;
 import com.mohanadalkrunz079.mobilecomputing.databinding.ActivityUserInformationBinding;
+import com.mohanadalkrunz079.mobilecomputing.model.BMIRecord;
 import com.mohanadalkrunz079.mobilecomputing.model.User;
 import com.mohanadalkrunz079.mobilecomputing.ui.Main.AddRecordActivity;
 import com.mohanadalkrunz079.mobilecomputing.ui.Main.MainActivity;
@@ -26,25 +39,35 @@ import java.util.Locale;
 
 public class UserInformationActivity extends AppCompatActivity {
 
-    private SharedPreferences loginPreferences = null;
-    UserDBHelper userDBHelper;
-    private BMIDBHelper bmidbHelper;
+
     ActivityUserInformationBinding binding;
     private Calendar calendar;
     private int year, month, day;
     String gender = "";
-    double bmi =0;
-    String status = "";
-    String uid="";
+    User mUser;
+    FirebaseAuth auth = FirebaseAuth.getInstance();
+    FirebaseUser user = auth.getCurrentUser();
+    FirebaseDatabase database= FirebaseDatabase.getInstance();
+    DatabaseReference myRef = database.getReference("Users").child(user.getUid());
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivityUserInformationBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        userDBHelper = new UserDBHelper(this);
-        bmidbHelper = new BMIDBHelper(this);
-        loginPreferences = getSharedPreferences("loginPrefs", MODE_PRIVATE);
+        myRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                mUser = snapshot.getValue(User.class);
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+
+            }
+        });
+
 
         calendar = Calendar.getInstance();
         year = calendar.get(Calendar.YEAR);
@@ -59,41 +82,30 @@ public class UserInformationActivity extends AppCompatActivity {
 
         binding.saveData.setOnClickListener(v->{
 
-
-
             if(binding.female.isChecked()){
                 gender = "Female";
             }else {
                 gender = "Male";
             }
-            ArrayList<User> users = userDBHelper.getUsers();
-            String username = loginPreferences.getString("username","no user");
-            for (int i = 0 ; i< users.size();i++){
-                if(username.equals(users.get(i).getUsername())){
-                    uid =users.get(i).getID();
-                    userDBHelper.updateUserInformation(
-                            users.get(i).getID(),
-                            gender,
-                            binding.weight.getText().toString(),
-                            binding.length.getText().toString(),
-                            binding.dateOfBirth.getText().toString()
-
-                    );
-                    break;
-                }
-            }
-
-
+            mUser.setGender(gender);
+            mUser.setDob(binding.dateOfBirth.getText().toString());
+            mUser.setWeight(binding.weight.getText().toString());
+            mUser.setLength(binding.length.getText().toString());
 
             calculateBMI();
 
+            myRef.setValue(mUser).addOnCompleteListener(new OnCompleteListener<Void>() {
+                @Override
+                public void onComplete(@NonNull Task<Void> task) {
+                    Intent intent = new Intent(UserInformationActivity.this, MainActivity.class);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    Toast.makeText(UserInformationActivity.this, "Information saved successful", Toast.LENGTH_SHORT).show();
 
+                }
+            });
 
-            Intent intent = new Intent(UserInformationActivity.this, MainActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
-            Toast.makeText(UserInformationActivity.this, "Information saved successful", Toast.LENGTH_SHORT).show();
-        });
+            });
 
 
     }
@@ -142,16 +154,18 @@ public class UserInformationActivity extends AppCompatActivity {
             status = "Obesity";
             status =  checkStatus(status,bmi);
         }
-        System.out.println("HEREERRERERER");
-        bmidbHelper.addRecord(
-                binding.weight.getText().toString(),
-                binding.length.getText().toString(),
-                date,
-                status,
-                uid,
-                bmi+""
-        );
 
+        String bmi_id=new Date().getTime()+"";
+        DatabaseReference bmiRef = database.getReference("BMI_Rec").child(user.getUid()).child(bmi_id);
+        BMIRecord bmiRecord = new BMIRecord();
+        bmiRecord.setBMI(bmi+"");
+        bmiRecord.setUID(user.getUid());
+        bmiRecord.setDate(date);
+        bmiRecord.setLength(binding.length.getText().toString());
+        bmiRecord.setWeight(binding.weight.getText().toString());
+        bmiRecord.setStatus(status);
+        bmiRecord.setIs_last(true);
+        bmiRef.setValue(bmiRecord);
     }
 
     private void initUI() {

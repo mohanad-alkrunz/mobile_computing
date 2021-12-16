@@ -1,5 +1,6 @@
 package com.mohanadalkrunz079.mobilecomputing.ui.auth;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
@@ -10,11 +11,17 @@ import android.text.method.PasswordTransformationMethod;
 import android.view.View;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.mohanadalkrunz079.mobilecomputing.R;
 import com.mohanadalkrunz079.mobilecomputing.database_helper.BMIDBHelper;
 import com.mohanadalkrunz079.mobilecomputing.database_helper.UserDBHelper;
 import com.mohanadalkrunz079.mobilecomputing.databinding.ActivityLoginBinding;
 import com.mohanadalkrunz079.mobilecomputing.model.User;
+import com.mohanadalkrunz079.mobilecomputing.ui.Main.AddFoodActivity;
 import com.mohanadalkrunz079.mobilecomputing.ui.Main.MainActivity;
 
 import java.util.ArrayList;
@@ -23,19 +30,20 @@ public class LoginActivity extends AppCompatActivity {
 
     ActivityLoginBinding binding;
 
-    UserDBHelper userDBHelper;
+//    UserDBHelper userDBHelper;
     private BMIDBHelper bmidbHelper;
     private SharedPreferences loginPreferences = null;
     private SharedPreferences.Editor loginPrefsEditor;
 
+    private FirebaseAuth mAuth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivityLoginBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
-
-        userDBHelper = new UserDBHelper(this);
+        mAuth = FirebaseAuth.getInstance();
+//        userDBHelper = new UserDBHelper(this);
         bmidbHelper = new BMIDBHelper(this);
 
         loginPreferences = getSharedPreferences("loginPrefs", MODE_PRIVATE);
@@ -78,37 +86,29 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
+        mAuth.signInWithEmailAndPassword(binding.username.getText().toString(), binding.password.getText().toString())
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        if (task.isSuccessful()) {
 
-        ArrayList<User> users_list = userDBHelper.getUsers();
+                            FirebaseUser user = mAuth.getCurrentUser();
+                            System.out.println(user.getDisplayName());
+                            loginPrefsEditor.putString("username", user.getDisplayName());
+                            loginPrefsEditor.putString("id", user.getUid());
+                            loginPrefsEditor.commit();
+                            Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            startActivity(intent);
 
-        String username = binding.username.getText().toString();
-        String password = binding.password.getText().toString();
-        boolean isLogin = false;
-        if (users_list != null || users_list.size() != 0) {
-            for (int i = 0; i < users_list.size(); i++) {
-                if (username.equals(users_list.get(i).getUsername()) && password.equals(users_list.get(i).getPassword())) {
-                    loginPrefsEditor.putString("id", users_list.get(i).getID());
-                    loginPrefsEditor.commit();
-                    isLogin = true;
-                    break;
-                } else {
-                    isLogin = false;
-                }
+                        } else {
+                            Toast.makeText(LoginActivity.this, "Authentication failed.",
+                                    Toast.LENGTH_SHORT).show();
 
-            }
-        }
+                        }
+                    }
+                });
 
-        if (isLogin) {
-            Toast.makeText(LoginActivity.this, "Login success", Toast.LENGTH_SHORT).show();
-            loginPrefsEditor.putString("username", binding.username.getText().toString());
-            loginPrefsEditor.commit();
-
-            Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
-        }else{
-            Toast.makeText(LoginActivity.this, "Invalid Login", Toast.LENGTH_SHORT).show();
-        }
 
     }
 }

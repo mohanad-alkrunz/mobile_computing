@@ -74,7 +74,7 @@ public class FoodDBHelper extends SQLiteOpenHelper {
                 record.setCategory(cursor.getString(2));
                 record.setCalory(cursor.getString(4));
                 record.setUid(cursor.getString(5));
-                record.setImage(cursor.getBlob(3));
+//                record.setImage(cursor.getBlob(3));
                 record.setKey_name(cursor.getString(6));
                 arrayList.add(record);
             }while (cursor.moveToNext());

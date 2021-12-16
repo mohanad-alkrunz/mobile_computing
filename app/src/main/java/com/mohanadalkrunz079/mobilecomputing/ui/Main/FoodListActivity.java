@@ -1,16 +1,29 @@
 package com.mohanadalkrunz079.mobilecomputing.ui.Main;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.ValueEventListener;
 import com.mohanadalkrunz079.mobilecomputing.adapters.FoodAdapter;
 import com.mohanadalkrunz079.mobilecomputing.database_helper.FoodDBHelper;
 import com.mohanadalkrunz079.mobilecomputing.databinding.ActivityAddFoodBinding;
 import com.mohanadalkrunz079.mobilecomputing.databinding.ActivityFoodListBinding;
+import com.mohanadalkrunz079.mobilecomputing.firebase.MyFirebaseProvider;
+import com.mohanadalkrunz079.mobilecomputing.model.BMIRecord;
 import com.mohanadalkrunz079.mobilecomputing.model.Food;
+import com.mohanadalkrunz079.mobilecomputing.model.User;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,58 +31,103 @@ import java.util.List;
 public class FoodListActivity extends AppCompatActivity {
 
     ActivityFoodListBinding binding;
-    private FoodDBHelper foodDBHelper;
+
     private FoodAdapter adapter;
+    User mUser;
+    FirebaseAuth auth;
+    FirebaseUser user;
 
-    private List<Food> foodList = new ArrayList<>();
-    private String uid;
-
+    DatabaseReference recordsDBRef, userDBref,delete_reference;
+    final List<Food>  my_records = new ArrayList<>();
+    
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         binding = ActivityFoodListBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
-
-        Intent intent = getIntent();
-        uid = intent.getStringExtra("uid");
-
-        foodDBHelper = new FoodDBHelper(this);
-
-
-
-        adapter = new FoodAdapter(foodList, new FoodAdapter.FoodListener() {
+        
+        initUI();
+        initDBRef();
+        setData();
+        
+    }
+    private void initUI(){
+        adapter = new FoodAdapter(my_records, new FoodAdapter.FoodListener() {
             @Override
             public void onEditClickListener(Context context, String food_id) {
                 Intent intent = new Intent(context,AddFoodActivity.class);
                 intent.putExtra("food_id",food_id);
-                intent.putExtra("uid",uid);
+                intent.putExtra("uid",user.getUid());
                 startActivity(intent);
             }
 
             @Override
             public void onDeleteClickListener(String food_id) {
-                foodDBHelper.delete(food_id);
-                getData();
+                deleteFood(food_id);
             }
         });
         binding.foodRv.setAdapter(adapter);
-        getData();
+    }
+
+    private void deleteFood(String food_id) {
+//        Toast.makeText(FoodListActivity.this, "Item Clicked", Toast.LENGTH_SHORT).show();
+
+        delete_reference = MyFirebaseProvider.getChildDatabaseReference("Food").child(user.getUid()).child(food_id);
+        delete_reference.removeValue().addOnCompleteListener(new OnCompleteListener<Void>() {
+            @Override
+            public void onComplete(@NonNull Task<Void> task) {
+                Toast.makeText(FoodListActivity.this, "Food Removed Successful", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
 
-    private void getData(){
+    private void initDBRef() {
+        recordsDBRef = MyFirebaseProvider.getChildDatabaseReference("BMI_Rec");
 
-        foodList.clear();
+        recordsDBRef.keepSynced(true);
 
-        List<Food> tempList = foodDBHelper.getRecords();
-
-        for (int i = 0 ; i< tempList.size();i++){
-            if(tempList.get(i).getUid().equals(uid)){
-                foodList.add(tempList.get(i));
+        auth = FirebaseAuth.getInstance();
+        user = auth.getCurrentUser();
+        userDBref = MyFirebaseProvider.getChildDatabaseReference("Users").child(user.getUid());
+        userDBref.keepSynced(true);
+        userDBref.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                mUser = snapshot.getValue(User.class);
             }
-        }
-        adapter.notifyDataSetChanged();
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+
+            }
+        });
+
+
+    }
+    
+    public void setData() {
+        my_records.clear();
+        MyFirebaseProvider.getChildDatabaseReference("Food").child(user.getUid()).
+                addValueEventListener(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        my_records.clear();
+                        for(DataSnapshot snapshot1 : snapshot.getChildren()){
+                            Food c = snapshot1.getValue(Food.class);
+                            my_records.add(c);
+                        }
+                        adapter.notifyDataSetChanged();
+                        
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+
+                    }
+                });
 
     }
 }

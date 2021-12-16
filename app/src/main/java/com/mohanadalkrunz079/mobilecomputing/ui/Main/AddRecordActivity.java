@@ -1,5 +1,7 @@
 package com.mohanadalkrunz079.mobilecomputing.ui.Main;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.app.DatePickerDialog;
@@ -9,56 +11,125 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.View;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.ChildEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import com.mohanadalkrunz079.mobilecomputing.R;
 import com.mohanadalkrunz079.mobilecomputing.database_helper.BMIDBHelper;
 import com.mohanadalkrunz079.mobilecomputing.database_helper.UserDBHelper;
 import com.mohanadalkrunz079.mobilecomputing.databinding.ActivityAddRecordBinding;
 import com.mohanadalkrunz079.mobilecomputing.databinding.ActivityUserInformationBinding;
+import com.mohanadalkrunz079.mobilecomputing.firebase.MessageListener;
+import com.mohanadalkrunz079.mobilecomputing.firebase.MyFirebaseProvider;
+import com.mohanadalkrunz079.mobilecomputing.model.BMIRecord;
+import com.mohanadalkrunz079.mobilecomputing.model.User;
+import com.mohanadalkrunz079.mobilecomputing.ui.auth.LoginActivity;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 
 public class AddRecordActivity extends AppCompatActivity {
 
 
+    User mUser ;
     ActivityAddRecordBinding binding;
-    String uid,dob,gender;
-
-
-    private BMIDBHelper bmidbHelper;
-
     private Calendar calendar;
     private int year, month, day;
-    double last_record;
+    FirebaseAuth auth;
+    FirebaseUser user;
+
+    DatabaseReference recordsDBRef, userDBref;
+    final List<BMIRecord> my_records = new ArrayList<>();
+     double last_record = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivityAddRecordBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
-        Intent intent = getIntent();
-        uid = intent.getStringExtra("uid");
-        dob = intent.getStringExtra("dob");
-        gender = intent.getStringExtra("gender");
-        last_record = intent.getDoubleExtra("last_record",0);
-
 
         initUI();
+        initDBRef();
+        setData();
 
 
     }
 
+
+    private void initDBRef() {
+        recordsDBRef = MyFirebaseProvider.getChildDatabaseReference("BMI_Rec");
+
+        recordsDBRef.keepSynced(true);
+
+        auth = FirebaseAuth.getInstance();
+        user = auth.getCurrentUser();
+        userDBref = MyFirebaseProvider.getChildDatabaseReference("Users").child(user.getUid());
+        userDBref.keepSynced(true);
+        userDBref.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                mUser = snapshot.getValue(User.class);
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+
+            }
+        });
+
+
+    }
+
+
+
+    public void setData() {
+        my_records.clear();
+        MyFirebaseProvider.getChildDatabaseReference("BMI_Rec").child(user.getUid()).
+                addValueEventListener(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        my_records.clear();
+                        for(DataSnapshot snapshot1 : snapshot.getChildren()){
+                            BMIRecord c = snapshot1.getValue(BMIRecord.class);
+                            my_records.add(c);
+                        }
+
+                        if(my_records.size()==0){
+                            last_record=0;
+
+                        }else{
+                            last_record = Double.valueOf(my_records.get(my_records.size()-1).getBMI());
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+
+                    }
+                });
+
+    }
+
+
     private void initUI() {
-        bmidbHelper = new BMIDBHelper(this);
+
         calendar = Calendar.getInstance();
         year = calendar.get(Calendar.YEAR);
         month = calendar.get(Calendar.MONTH);
         day = calendar.get(Calendar.DAY_OF_MONTH);
         showDate(year, month+1, day);
-
-
         binding.date.setOnClickListener(v->{
             setDate();
         });
@@ -95,23 +166,19 @@ public class AddRecordActivity extends AppCompatActivity {
             }
         });
 
-
-
-
-
         binding.saveRecord.setOnClickListener(v->{
                 double bmi = 0 ;
                 double weight = Double.valueOf(binding.weight.getText().toString());
                 double length = Double.valueOf(binding.length.getText().toString());
 
-                double age = getAge(dob);
+                double age = getAge(mUser.getDob());
                 double age_percent = 0.7;
 
                 if ( age >= 2 && age <= 10){
                     age_percent = 0.7;
-                }else if( (age > 10 && age <= 20) && gender.equals("Male")){
+                }else if( (age > 10 && age <= 20) && mUser.getGender().equals("Male")){
                     age_percent = 0.9;
-                }else if( (age > 10 && age <= 20) && gender.equals("Female")){
+                }else if( (age > 10 && age <= 20) && mUser.getGender().equals("Female")){
                     age_percent = 0.9;
                 }else if (age > 20 ){
                     age_percent = 1;
@@ -138,106 +205,124 @@ public class AddRecordActivity extends AppCompatActivity {
                     status =  checkStatus(status,bmi);
                 }
 
-            bmidbHelper.addRecord(
-                    binding.weight.getText().toString(),
-                    binding.length.getText().toString(),
-                    binding.date.getText().toString(),
-                    status,
-                    uid,
-                    bmi+""
-            );
-            Toast.makeText(AddRecordActivity.this, "Record Added Successful", Toast.LENGTH_SHORT).show();
+            String record_id = new Date().getTime() + "";
+            BMIRecord record = new BMIRecord();
+            record.setStatus(status);
+            record.setUID(mUser.getID());
+            record.setBMI(bmi+"");
+            record.setWeight(binding.weight.getText().toString());
+            record.setLength(binding.length.getText().toString());
+            record.setID(record_id);
+            record.setIs_last(true);
+            record.setDate(binding.date.getText().toString());
 
+
+            MyFirebaseProvider.DoAddRecord(record, user.getUid(), new MessageListener() {
+                @Override
+                public void onResult(boolean result, String key) {
+                    if (result){
+                        Toast.makeText(AddRecordActivity.this, "Record Add Successful", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
         });
     }
 
 
+
+
     private String checkStatus(String status , double bmi){
-         double delta = bmi - last_record;
-         switch (status){
-             case "Underweight":
-                 if (delta < -1){
-                     status += " (So Bad)";
-                 }else if( delta >= -1 && delta < -0.6){
-                     status += " (So Bad)";
-                 }
-                 else if( delta >= -0.6 && delta < -0.3){
-                     status += " (So Bad)";
-                 }else if( delta >= -0.3 && delta < 0){
-                     status += " (Little Change)";
-                 }else if( delta >= 0 && delta < 0.3){
-                     status += " (Little Change)";
-                 }else if( delta >= 0.3 && delta < 0.6){
-                     status += " (Still Good)";
-                 }else if( delta >= 0.6 && delta < 1){
-                     status += " (Go Ahead)";
-                 }else if( delta >= 1 ){
-                     status += " (Go Ahead)";
-                 }
-                 break;
-             case "Healthy Weight":
-                 if (delta < -1){
-                     status += " (So Bad)";
-                 }else if( delta >= -1 && delta < -0.6){
-                     status += " (Be Careful)";
-                 }
-                 else if( delta >= -0.6 && delta < -0.3){
-                     status += " (Be Careful)";
-                 }else if( delta >= -0.3 && delta < 0){
-                     status += " (Little Change)";
-                 }else if( delta >= 0 && delta < 0.3){
-                     status += " (Little Change)";
-                 }else if( delta >= 0.3 && delta < 0.6){
-                     status += " (Be Careful)";
-                 }else if( delta >= 0.6 && delta < 1){
-                     status += " (Be Careful)";
-                 }else if( delta >= 1 ){
-                     status += " (Be Careful)";
-                 }
-                 break;
-             case "Overweight":
-                 if (delta < -1){
-                     status += " (Be Careful)";
-                 }else if( delta >= -1 && delta < -0.6){
-                     status += " (Go Ahead)";
-                 }
-                 else if( delta >= -0.6 && delta < -0.3){
-                     status += " (Still Good)";
-                 }else if( delta >= -0.3 && delta < 0){
-                     status += " (Little Change)";
-                 }else if( delta >= 0 && delta < 0.3){
-                     status += " (Little Change)";
-                 }else if( delta >= 0.3 && delta < 0.6){
-                     status += " (Be Careful)";
-                 }else if( delta >= 0.6 && delta < 1){
-                     status += " (So Bad)";
-                 }else if( delta >= 1 ){
-                     status += " (So Bad)";
-                 }
-                 break;
-             case "Obesity":
-                 if (delta < -1){
-                     status += " (Go Ahead)";
-                 }else if( delta >= -1 && delta < -0.6){
-                     status += " (Go Ahead)";
-                 }
-                 else if( delta >= -0.6 && delta < -0.3){
-                     status += " (Little Change)";
-                 }else if( delta >= -0.3 && delta < 0){
-                     status += " (Little Change)";
-                 }else if( delta >= 0 && delta < 0.3){
-                     status += " (Be Careful)";
-                 }else if( delta >= 0.3 && delta < 0.6){
-                     status += " (So Bad)";
-                 }else if( delta >= 0.6 && delta < 1){
-                     status += " (So Bad)";
-                 }else if( delta >= 1 ){
-                     status += " (So Bad)";
-                 }
-                 break;
-         }
 
 
+
+
+        if(last_record != 0){
+            System.out.println(last_record);
+            double delta = bmi - last_record;
+            switch (status){
+                case "Underweight":
+                    if (delta < -1){
+                        status += " (So Bad)";
+                    }else if( delta >= -1 && delta < -0.6){
+                        status += " (So Bad)";
+                    }
+                    else if( delta >= -0.6 && delta < -0.3){
+                        status += " (So Bad)";
+                    }else if( delta >= -0.3 && delta < 0){
+                        status += " (Little Change)";
+                    }else if( delta >= 0 && delta < 0.3){
+                        status += " (Little Change)";
+                    }else if( delta >= 0.3 && delta < 0.6){
+                        status += " (Still Good)";
+                    }else if( delta >= 0.6 && delta < 1){
+                        status += " (Go Ahead)";
+                    }else if( delta >= 1 ){
+                        status += " (Go Ahead)";
+                    }
+                    break;
+                case "Healthy Weight":
+                    if (delta < -1){
+                        status += " (So Bad)";
+                    }else if( delta >= -1 && delta < -0.6){
+                        status += " (Be Careful)";
+                    }
+                    else if( delta >= -0.6 && delta < -0.3){
+                        status += " (Be Careful)";
+                    }else if( delta >= -0.3 && delta < 0){
+                        status += " (Little Change)";
+                    }else if( delta >= 0 && delta < 0.3){
+                        status += " (Little Change)";
+                    }else if( delta >= 0.3 && delta < 0.6){
+                        status += " (Be Careful)";
+                    }else if( delta >= 0.6 && delta < 1){
+                        status += " (Be Careful)";
+                    }else if( delta >= 1 ){
+                        status += " (Be Careful)";
+                    }
+                    break;
+                case "Overweight":
+                    if (delta < -1){
+                        status += " (Be Careful)";
+                    }else if( delta >= -1 && delta < -0.6){
+                        status += " (Go Ahead)";
+                    }
+                    else if( delta >= -0.6 && delta < -0.3){
+                        status += " (Still Good)";
+                    }else if( delta >= -0.3 && delta < 0){
+                        status += " (Little Change)";
+                    }else if( delta >= 0 && delta < 0.3){
+                        status += " (Little Change)";
+                    }else if( delta >= 0.3 && delta < 0.6){
+                        status += " (Be Careful)";
+                    }else if( delta >= 0.6 && delta < 1){
+                        status += " (So Bad)";
+                    }else if( delta >= 1 ){
+                        status += " (So Bad)";
+                    }
+                    break;
+                case "Obesity":
+                    if (delta < -1){
+                        status += " (Go Ahead)";
+                    }else if( delta >= -1 && delta < -0.6){
+                        status += " (Go Ahead)";
+                    }
+                    else if( delta >= -0.6 && delta < -0.3){
+                        status += " (Little Change)";
+                    }else if( delta >= -0.3 && delta < 0){
+                        status += " (Little Change)";
+                    }else if( delta >= 0 && delta < 0.3){
+                        status += " (Be Careful)";
+                    }else if( delta >= 0.3 && delta < 0.6){
+                        status += " (So Bad)";
+                    }else if( delta >= 0.6 && delta < 1){
+                        status += " (So Bad)";
+                    }else if( delta >= 1 ){
+                        status += " (So Bad)";
+                    }
+                    break;
+            }
+
+        }
         return status;
     }
 
